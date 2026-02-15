@@ -10,7 +10,7 @@ import AvatarVisualizer from "@/app/components/AvatarVisualizer";
 
 export default function HomePage() {
   const { user, logout } = useAuth();
-  const { profile, generateMusic, addAction, loading, error } = useAvatar();
+  const { profile, generateMusic, refreshProfile, loading, error } = useAvatar();
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
 
@@ -19,12 +19,8 @@ export default function HomePage() {
     try {
       const result = await generateMusic({ context: { prompt: prompt.trim() } });
       if (result?.audio_url) setCurrentAudio(result.audio_url);
-      await addAction({
-        type: "generate",
-        input_type: "text",
-        input: { prompt, context: {} },
-        output: { audio_url: result?.audio_url },
-      });
+      // Действие уже записано в /api/avatar/generate — обновляем счётчик в UI
+      await refreshProfile();
     } catch (e) {
       console.error("Error creating music:", e);
     }

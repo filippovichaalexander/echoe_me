@@ -8,6 +8,7 @@ interface UseAvatarReturn {
   profile: AvatarProfile | null;
   loading: boolean;
   error: string | null;
+  refreshProfile: () => Promise<void>;
   addAction: (action: ActionPayload) => Promise<void>;
   generateMusic: (context?: Record<string, unknown>) => Promise<GenerateResult | undefined>;
   getExplanation: (decision: Record<string, unknown>, context?: Record<string, unknown>) => Promise<unknown>;
@@ -74,6 +75,7 @@ export function useAvatar(): UseAvatarReturn {
     profile,
     loading,
     error,
+    refreshProfile: fetchProfile,
     addAction,
     generateMusic,
     getExplanation,
