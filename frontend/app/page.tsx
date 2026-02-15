@@ -7,19 +7,51 @@ import { useAvatar } from "@/lib/hooks/useAvatar";
 import VoiceRecorder from "@/app/components/VoiceRecorder";
 import MusicPlayer from "@/app/components/MusicPlayer";
 import AvatarVisualizer from "@/app/components/AvatarVisualizer";
+import {
+  MusicTagSelector,
+  type SelectedTags,
+  type TagCategory,
+} from "@/app/components/MusicTagSelector";
+
+const emptyTags: SelectedTags = {
+  style: [],
+  instruments: [],
+  mood: [],
+};
 
 export default function HomePage() {
   const { user, logout } = useAuth();
   const { profile, generateMusic, refreshProfile, loading, error } = useAvatar();
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [selectedTags, setSelectedTags] = useState<SelectedTags>(emptyTags);
+
+  const handleTagSelect = (category: TagCategory, tag: string) => {
+    setSelectedTags((prev) => ({
+      ...prev,
+      [category]: [...prev[category], tag],
+    }));
+  };
+
+  const handleTagRemove = (category: TagCategory, tag: string) => {
+    setSelectedTags((prev) => ({
+      ...prev,
+      [category]: prev[category].filter((t) => t !== tag),
+    }));
+  };
 
   const handleCreateMusic = async () => {
     if (!prompt.trim()) return;
     try {
-      const result = await generateMusic({ context: { prompt: prompt.trim() } });
+      const result = await generateMusic({
+        context: {
+          prompt: prompt.trim(),
+          style: selectedTags.style,
+          instruments: selectedTags.instruments,
+          mood: selectedTags.mood,
+        },
+      });
       if (result?.audio_url) setCurrentAudio(result.audio_url);
-      // Действие уже записано в /api/avatar/generate — обновляем счётчик в UI
       await refreshProfile();
     } catch (e) {
       console.error("Error creating music:", e);
@@ -57,14 +89,23 @@ export default function HomePage() {
                 Опиши музыкальный момент
               </h2>
               <div className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Например: прогулка по осеннему лесу под дождь"
-                  className="w-full bg-gray-900 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateMusic()}
-                />
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <input
+                    type="text"
+                    placeholder="Например: прогулка по осеннему лесу под дождь"
+                    className="flex-1 min-w-0 bg-gray-900 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateMusic()}
+                  />
+                  <div className="lg:w-[26rem] flex-shrink-0">
+                    <MusicTagSelector
+                      selected={selectedTags}
+                      onSelect={handleTagSelect}
+                      onRemove={handleTagRemove}
+                    />
+                  </div>
+                </div>
                 <div className="flex gap-4 flex-wrap">
                   <button
                     onClick={handleCreateMusic}
