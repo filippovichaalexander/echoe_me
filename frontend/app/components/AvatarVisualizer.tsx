@@ -1,15 +1,10 @@
 "use client";
 
-interface Profile {
-  user_id?: string;
-  stats?: Record<string, number>;
-  preferences?: Record<string, unknown>;
-  avatar_health?: { data_points?: number; consistency_score?: number };
-}
+import type { AvatarProfile } from "@/lib/api/types";
 
-export default function AvatarVisualizer({ profile }: { profile: Profile }) {
-  const stats = profile.stats || {};
-  const health = profile.avatar_health || {};
+export default function AvatarVisualizer({ profile }: { profile: AvatarProfile }) {
+  const stats = profile.stats;
+  const health = profile.avatar_health;
 
   return (
     <div className="space-y-4">
@@ -23,7 +18,7 @@ export default function AvatarVisualizer({ profile }: { profile: Profile }) {
           <p className="font-mono text-lg">{stats.generation_count ?? 0}</p>
         </div>
       </div>
-      {health.data_points !== undefined && (
+      {health?.data_points !== undefined && (
         <p className="text-gray-400 text-sm">
           Точек данных: {health.data_points}
         </p>
