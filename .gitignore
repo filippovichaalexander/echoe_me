@@ -48,6 +48,9 @@ backend/htmlcov/
 frontend/coverage/
 .nyc_output/
 
+# Backend auth data (passwords hashes)
+backend/data/
+
 # Misc
 *.bak
 .cache/

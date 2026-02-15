@@ -19,5 +19,8 @@ sqlalchemy[asyncio]==2.0.25
 # HTTP client for external APIs
 httpx==0.26.0
 
+# Auth (Argon2 — без лимита 72 байт, рекомендуется OWASP)
+argon2-cffi>=23.1.0
+
 # Env
 python-dotenv==1.0.0

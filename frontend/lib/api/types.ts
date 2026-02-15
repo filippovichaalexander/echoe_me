@@ -1,3 +1,9 @@
+export interface AuthUser {
+  id: string;
+  name?: string;
+  email: string;
+}
+
 export interface AvatarProfile {
   user_id: string;
   created_at: string;

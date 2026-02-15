@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { useAvatar } from "@/lib/hooks/useAvatar";
 import VoiceRecorder from "@/app/components/VoiceRecorder";
 import MusicPlayer from "@/app/components/MusicPlayer";
 import AvatarVisualizer from "@/app/components/AvatarVisualizer";
 
 export default function HomePage() {
+  const { user, logout } = useAuth();
   const { profile, generateMusic, addAction, loading, error } = useAvatar();
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -30,7 +32,19 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
-      <header className="container mx-auto px-4 py-8">
+      <header className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <span className="text-gray-400 text-sm truncate">
+            {user?.name || user?.email}
+          </span>
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="text-sm text-gray-400 hover:text-white transition"
+          >
+            Выйти
+          </button>
+        </div>
         <h1 className="text-4xl font-bold mb-2">
           🎵 Создай свою музыкальную идентичность
         </h1>

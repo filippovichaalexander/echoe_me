@@ -1,11 +1,11 @@
-"""FastAPI dependencies: текущий пользователь, менеджер аватаров."""
+"""FastAPI dependencies: текущий пользователь из сессии, менеджер аватаров."""
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Cookie, Depends, HTTPException
 
+from core.auth import SESSION_COOKIE_NAME, get_session, get_user_by_id
 from core.memory_manager import MemoryManager
 
-# Глобальный менеджер памяти (MVP; в проде — инжект через app.state)
 _avatar_manager = MemoryManager()
 
 
@@ -14,10 +14,13 @@ def get_avatar_manager() -> MemoryManager:
 
 
 def get_current_user(
-    x_user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
+    session_id: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> dict:
-    """Для MVP: пользователь задаётся заголовком X-User-Id. В проде — JWT/session."""
-    if not x_user_id:
-        # В dev разрешаем без пользователя — используем default
-        return {"id": "default", "email": "dev@localhost", "tier": "free"}
-    return {"id": x_user_id, "email": f"{x_user_id}@user", "tier": "free"}
+    """Текущий пользователь из cookie сессии. Для защищённых эндпоинтов."""
+    session = get_session(session_id) if session_id else None
+    if not session:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    user = get_user_by_id(session["user_id"])
+    if not user:
+        raise HTTPException(status_code=401, detail="Пользователь не найден")
+    return {"id": user["id"], "email": user["email"], "name": user.get("name"), "tier": "free"}
