@@ -65,13 +65,21 @@ export default function HomePage() {
           <span className="text-gray-400 text-sm truncate">
             {user?.name || user?.email}
           </span>
-          <button
-            type="button"
-            onClick={() => logout()}
-            className="text-sm text-gray-400 hover:text-white transition"
-          >
-            Выйти
-          </button>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/profile"
+              className="text-sm text-gray-400 hover:text-white transition"
+            >
+              Личный кабинет
+            </Link>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="text-sm text-gray-400 hover:text-white transition"
+            >
+              Выйти
+            </button>
+          </div>
         </div>
         <h1 className="text-4xl font-bold mb-2">
           🎵 Создай свою музыкальную идентичность
@@ -141,12 +149,16 @@ export default function HomePage() {
           </div>
 
           <div className="space-y-8">
-            <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
-              <h2 className="text-2xl font-bold mb-4">Твой музыкальный аватар</h2>
+            <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 hover:border-gray-600/50 transition">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <span aria-hidden className="text-2xl">🎭</span>
+                Твой музыкальный аватар
+              </h2>
               {profile ? (
                 <AvatarVisualizer profile={profile} />
               ) : (
                 <div className="text-center py-8 text-gray-400">
+                  <span className="text-4xl block mb-2" aria-hidden>✨</span>
                   Выполни действия — аватар начнёт учиться.
                 </div>
               )}
