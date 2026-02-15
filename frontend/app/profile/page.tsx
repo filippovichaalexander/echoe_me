@@ -10,6 +10,7 @@ import AnalyticsSection from "./components/AnalyticsSection";
 import InsightsSection from "./components/InsightsSection";
 import LibrarySection from "./components/LibrarySection";
 import EvolutionSection from "./components/EvolutionSection";
+import PackageSection from "./components/PackageSection";
 import SettingsSection from "./components/SettingsSection";
 
 const TABS = [
@@ -19,6 +20,7 @@ const TABS = [
   { id: "insights", label: "Инсайты", icon: "🧠" },
   { id: "library", label: "Библиотека", icon: "🎨" },
   { id: "evolution", label: "Эволюция", icon: "🌱" },
+  { id: "package", label: "Пакет", icon: "📦" },
   { id: "settings", label: "Настройки", icon: "⚙️" },
 ] as const;
 
@@ -60,7 +62,7 @@ export default function ProfilePage() {
           <div className="text-center py-12 text-gray-400">Загрузка…</div>
         )}
 
-        {!loading && !profile && (
+        {!loading && !profile && activeTab !== "package" && activeTab !== "settings" && (
           <div className="bg-gray-800/50 rounded-2xl p-8 border border-gray-700/50 text-center text-gray-400">
             <p className="mb-4">
               Выполни действия на главной — появится профиль аватара и разделы
@@ -72,20 +74,21 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {profile && (
+        {(profile || activeTab === "package" || activeTab === "settings") && (
           <>
-            {activeTab === "dashboard" && (
+            {activeTab === "dashboard" && profile && (
               <AvatarDashboardSection profile={profile} />
             )}
             {activeTab === "history" && <InteractionHistorySection />}
-            {activeTab === "analytics" && (
+            {activeTab === "analytics" && profile && (
               <AnalyticsSection profile={profile} />
             )}
             {activeTab === "insights" && <InsightsSection />}
             {activeTab === "library" && <LibrarySection />}
-            {activeTab === "evolution" && (
+            {activeTab === "evolution" && profile && (
               <EvolutionSection profile={profile} />
             )}
+            {activeTab === "package" && <PackageSection />}
             {activeTab === "settings" && <SettingsSection />}
           </>
         )}

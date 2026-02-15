@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useAvatar } from "@/lib/hooks/useAvatar";
+import { useLibrary } from "@/lib/hooks/useLibrary";
 import VoiceRecorder from "@/app/components/VoiceRecorder";
 import MusicPlayer from "@/app/components/MusicPlayer";
 import AvatarVisualizer from "@/app/components/AvatarVisualizer";
@@ -22,9 +23,13 @@ const emptyTags: SelectedTags = {
 export default function HomePage() {
   const { user, logout } = useAuth();
   const { profile, generateMusic, refreshProfile, loading, error } = useAvatar();
+  const { addTrack } = useLibrary();
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [selectedTags, setSelectedTags] = useState<SelectedTags>(emptyTags);
+  const [saveToLibError, setSaveToLibError] = useState<string | null>(null);
+  const [savedToLib, setSavedToLib] = useState(false);
+  const [savingToLib, setSavingToLib] = useState(false);
 
   const handleTagSelect = (category: TagCategory, tag: string) => {
     setSelectedTags((prev) => ({
@@ -51,10 +56,32 @@ export default function HomePage() {
           mood: selectedTags.mood,
         },
       });
-      if (result?.audio_url) setCurrentAudio(result.audio_url);
+      if (result?.audio_url) {
+        setCurrentAudio(result.audio_url);
+        setSavedToLib(false);
+        setSaveToLibError(null);
+      }
       await refreshProfile();
     } catch (e) {
       console.error("Error creating music:", e);
+    }
+  };
+
+  const handleSaveToLibrary = async () => {
+    if (!currentAudio) return;
+    setSaveToLibError(null);
+    setSavingToLib(true);
+    try {
+      await addTrack({
+        url: currentAudio,
+        name: prompt.trim() || undefined,
+        prompt: prompt.trim() || undefined,
+      });
+      setSavedToLib(true);
+    } catch (e) {
+      setSaveToLibError(e instanceof Error ? e.message : "Не удалось сохранить");
+    } finally {
+      setSavingToLib(false);
     }
   };
 
@@ -66,6 +93,12 @@ export default function HomePage() {
             {user?.name || user?.email}
           </span>
           <div className="flex items-center gap-4">
+            <Link
+              href="/library"
+              className="text-sm text-gray-400 hover:text-white transition"
+            >
+              Моя библиотека
+            </Link>
             <Link
               href="/profile"
               className="text-sm text-gray-400 hover:text-white transition"
@@ -142,7 +175,32 @@ export default function HomePage() {
 
             {currentAudio && (
               <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
-                <h3 className="text-xl font-bold mb-4">Твоя музыка</h3>
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <h3 className="text-xl font-bold">Твоя музыка</h3>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/library"
+                      className="text-sm text-gray-400 hover:text-white transition"
+                    >
+                      📚 Библиотека
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleSaveToLibrary}
+                      disabled={savingToLib || savedToLib}
+                      className="rounded-xl px-4 py-2 text-sm font-medium border border-gray-600 hover:border-purple-500 transition disabled:opacity-50 disabled:cursor-default"
+                    >
+                      {savingToLib
+                        ? "Сохранение…"
+                        : savedToLib
+                          ? "✓ В библиотеке"
+                          : "💾 В библиотеку"}
+                    </button>
+                  </div>
+                </div>
+                {saveToLibError && (
+                  <p className="mb-3 text-sm text-red-400">{saveToLibError}</p>
+                )}
                 <MusicPlayer audioUrl={currentAudio} />
               </section>
             )}

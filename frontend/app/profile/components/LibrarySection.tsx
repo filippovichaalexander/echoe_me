@@ -1,22 +1,53 @@
 "use client";
 
+import Link from "next/link";
+import { useLibrary } from "@/lib/hooks/useLibrary";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import StorageQuota from "@/app/components/library/StorageQuota";
+
 export default function LibrarySection() {
+  const { tracks, loading } = useLibrary();
+  const { tier, usage, limits } = useSubscription();
+
   return (
-    <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
-      <h3 className="text-2xl font-bold mb-6">🎨 Библиотека созданного</h3>
-      <p className="text-gray-400 text-sm mb-6">
-        Сохранённые треки и плейлисты появятся здесь после добавления
-        функционала сохранения с главной страницы.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="bg-gray-700/50 rounded-xl p-4 border border-gray-700/50 aspect-video flex items-center justify-center text-gray-500"
+    <section className="space-y-6">
+      <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h3 className="text-2xl font-bold">🎨 Библиотека созданного</h3>
+          <Link
+            href="/library"
+            className="text-purple-400 hover:text-purple-300 text-sm font-medium"
           >
-            Слот трека
+            Открыть библиотеку →
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <StorageQuota usage={usage} limits={limits} tier={tier} compact={false} />
+
+          <div>
+            {loading ? (
+              <p className="text-gray-400 text-sm">Загрузка…</p>
+            ) : tracks.length === 0 ? (
+              <p className="text-gray-400 text-sm">
+                Сохранённые треки появятся здесь. Сохраняйте с главной страницы
+                кнопкой «В библиотеку».
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-gray-300 font-medium">
+                  Сохранено треков: {tracks.length}
+                </p>
+                <Link
+                  href="/library"
+                  className="inline-block text-sm text-purple-400 hover:underline"
+                >
+                  Перейти в библиотеку
+                </Link>
+              </div>
+            )}
           </div>
-        ))}
+        </div>
       </div>
     </section>
   );

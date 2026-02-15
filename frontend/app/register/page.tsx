@@ -46,6 +46,7 @@ export default function RegisterPage() {
     try {
       await register(name.trim(), email.trim(), trimmedPassword, passwordConfirm.trim());
     } catch (err) {
+      console.log('error', err)
       setError(err instanceof Error ? err.message : "Ошибка регистрации");
     } finally {
       setLoading(false);

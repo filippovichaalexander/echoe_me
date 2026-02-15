@@ -66,6 +66,7 @@ def create_user(name: str, email: str, password: str) -> dict:
         "name": name.strip(),
         "email": email_lower,
         "password_hash": hash_password(password),
+        "tier": "free",
     }
     _save_users()
     return _users[email_lower].copy()
@@ -78,7 +79,9 @@ def get_user_by_email(email: str) -> Optional[dict]:
 def get_user_by_id(user_id: str) -> Optional[dict]:
     for u in _users.values():
         if u["id"] == user_id:
-            return {k: v for k, v in u.items() if k != "password_hash"}
+            out = {k: v for k, v in u.items() if k != "password_hash"}
+            out.setdefault("tier", "free")
+            return out
     return None
 
 

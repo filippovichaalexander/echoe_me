@@ -21,6 +21,16 @@ from core.auth import (
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+@router.options("/login")
+@router.options("/register")
+@router.options("/logout")
+@router.options("/me")
+async def auth_preflight():
+    """CORS preflight: браузер запрашивает OPTIONS перед POST; отвечаем 200 (CORS добавляет middleware)."""
+    from starlette.responses import Response
+    return Response(status_code=200)
+
+
 class RegisterBody(BaseModel):
     name: str
     email: str
