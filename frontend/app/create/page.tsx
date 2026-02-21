@@ -11,9 +11,9 @@ export default function CreatePage() {
           href="/create/wizard"
           className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-purple-500 transition"
         >
-          <span className="text-2xl block mb-2">🎛️</span>
-          <strong>Multi-step wizard</strong>
-          <p className="text-gray-400 text-sm mt-1">Пошаговый конструктор</p>
+          <span className="text-2xl block mb-2">🎭</span>
+          <strong>Конструктор с аватаром</strong>
+          <p className="text-gray-400 text-sm mt-1">Пошаговый конструктор и чат с аватаром</p>
         </Link>
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
           <span className="text-2xl block mb-2">🎤</span>
