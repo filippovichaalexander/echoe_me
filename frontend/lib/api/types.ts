@@ -54,6 +54,15 @@ export interface LibraryTrack {
   size_bytes?: number;
 }
 
+/** Проект в библиотеке (create/wizard). */
+export interface LibraryProject {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  files?: { id: string; name: string; type: string }[];
+}
+
 /** Использование хранилища (для квоты). */
 export interface LibraryUsage {
   total_storage_mb: number;
