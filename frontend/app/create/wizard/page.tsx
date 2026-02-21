@@ -1,66 +1,60 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import AvatarChatSidebar from "@/app/components/AvatarChatSidebar";
-import ProjectDirSidebar, { ProjectDirFile } from "@/app/components/ProjectDirSidebar";
+import ProjectDirSidebar from "@/app/components/ProjectDirSidebar";
 import { useLibraryProjects } from "@/lib/hooks/useLibraryProjects";
 import type { LibraryProject } from "@/lib/api/types";
+import { apiClient } from "@/lib/api/client";
 
-const TYPE_OPTIONS = ["Полная композиция", "Стем", "Модификация"] as const;
-
-const STEPS = [
-  { id: "mood", title: "Настроение?", type: "text" as const },
-  { id: "details", title: "Детали", type: "sliders" as const },
-];
-
-type ProjectChoice = null | "create" | "choose";
-
-interface WizardProject {
-  id: string;
-  name: string;
-  files: ProjectDirFile[];
-}
-
-/** Валидация имени проекта: без пробелов, простая проверка символов. */
-function validateProjectName(name: string): string | null {
-  const t = name.trim();
-  if (!t) return "Введите имя проекта";
-  if (/\s/.test(name)) return "Пробелы не допускаются";
-  if (t.length > 64) return "Не более 64 символов";
-  if (!/^[\w\-]+$/.test(t)) return "Только буквы, цифры, дефис и подчёркивание";
-  if (!/[a-zA-Zа-яА-ЯёЁ]/.test(t)) return "Нужна хотя бы одна буква";
-  return null;
-}
-
-function toWizardProject(p: LibraryProject): WizardProject {
-  return {
-    id: p.id,
-    name: p.name,
-    files: (p.files ?? []).map((f) => ({
-      id: f.id,
-      name: f.name,
-      type: (f.type === "stem" ? "stem" : f.type === "modification" ? "modification" : "composition") as "composition" | "stem" | "modification",
-      createdAt: undefined,
-    })),
-  };
-}
+import { TYPE_OPTIONS, STEPS } from "./constants";
+import { toWizardProject } from "./types";
+import { validateProjectName } from "./validation";
+import { useWizardData } from "./useWizardData";
+import { useVoiceRecording } from "./useVoiceRecording";
+import { WizardProjectModal } from "./components/WizardProjectModal";
+import { WizardChooseProject } from "./components/WizardChooseProject";
+import { WizardStepDescription } from "./steps/WizardStepDescription";
+import { WizardStepRefs } from "./steps/WizardStepRefs";
+import { WizardStepTech } from "./steps/WizardStepTech";
+import { WizardStepInstruments } from "./steps/WizardStepInstruments";
+import { WizardStepStructure } from "./steps/WizardStepStructure";
+import { WizardStepContext } from "./steps/WizardStepContext";
+import { WizardStepExtra } from "./steps/WizardStepExtra";
 
 export default function WizardPage() {
   const { projects, loading: projectsLoading, error: projectsError, createProject, refresh: refreshProjects } = useLibraryProjects();
-  const [projectChoice, setProjectChoice] = useState<ProjectChoice>(null);
+  const [projectChoice, setProjectChoice] = useState<null | "create" | "choose">(null);
   const [projectName, setProjectName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
-  const [currentProject, setCurrentProject] = useState<WizardProject | null>(null);
+  const [currentProject, setCurrentProject] = useState<ReturnType<typeof toWizardProject> | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<Record<string, unknown>>({});
+  const [refsLinkInput, setRefsLinkInput] = useState("");
+  const [refsLinkError, setRefsLinkError] = useState<string | null>(null);
+  const [refsFiles, setRefsFiles] = useState<{ id: string; name: string; size: number; path?: string }[]>([]);
+  const [refsFileError, setRefsFileError] = useState<string | null>(null);
+  const [refsUploading, setRefsUploading] = useState(false);
+  const refsFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [extraTextFiles, setExtraTextFiles] = useState<{ id: string; name: string; size: number; path?: string }[]>([]);
+  const [extraTextFileError, setExtraTextFileError] = useState<string | null>(null);
+  const [extraTextUploading, setExtraTextUploading] = useState(false);
+  const extraTextFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { data, setData, getSet, getList, toggleList, setValue } = useWizardData();
+  const voice = useVoiceRecording({
+    currentProject,
+    step,
+    dataDescription: (data.description as string) ?? "",
+    setValue,
+  });
 
   useEffect(() => {
     if (projectChoice === "choose") refreshProjects();
   }, [projectChoice, refreshProjects]);
 
-  const wizardSteps = STEPS;
+  const wizardSteps = selectedType === "Полная композиция" ? STEPS : STEPS.filter((s) => s.id !== "structure");
   const current = wizardSteps[step];
   const isLast = step === wizardSteps.length - 1;
 
@@ -87,156 +81,180 @@ export default function WizardPage() {
     setStep(0);
   }, []);
 
+  const handleBackStep = useCallback(() => {
+    if (step === 0) setSelectedType(null);
+    else setStep(step - 1);
+  }, [step]);
+
+  const handleStepNext = useCallback(async () => {
+    const isDescriptionStep = current?.id === "description";
+    const blobToUpload = voice.voiceFinalBlob ?? voice.voiceDraftBlob;
+    if (isDescriptionStep && blobToUpload && currentProject && selectedType) {
+      voice.setVoiceUploading(true);
+      try {
+        const text = (data.description as string) ?? "";
+        await apiClient.uploadVoiceDescription("/api/avatar/voice-description", blobToUpload, {
+          projectId: currentProject.id,
+          creationType: selectedType,
+          transcription: text || undefined,
+        });
+        voice.setVoiceError(null);
+        voice.onUploadSuccess(blobToUpload);
+        setStep((s) => s + 1);
+      } catch (e) {
+        voice.setVoiceError(e instanceof Error ? e.message : "Ошибка отправки записи");
+      } finally {
+        voice.setVoiceUploading(false);
+      }
+      return;
+    }
+    if (step + 1 < wizardSteps.length) setStep((s) => s + 1);
+    else {
+      /* TODO: submit */
+    }
+  }, [current, voice.voiceFinalBlob, voice.voiceDraftBlob, currentProject, selectedType, data.description, step, wizardSteps.length, voice]);
+
+  const uploadRefFile = useCallback(async (file: File) => {
+    setRefsUploading(true);
+    try {
+      const res = await apiClient.uploadFile<{ id: string; name: string; size: number; path: string }>("/api/library/upload/ref-audio", file);
+      setRefsFiles((prev) => [...prev, { id: res.id, name: res.name, size: res.size, path: res.path }]);
+    } catch (err) {
+      setRefsFileError(err instanceof Error ? err.message : "Ошибка загрузки");
+    } finally {
+      setRefsUploading(false);
+    }
+  }, []);
+
+  const uploadExtraTextFile = useCallback(async (file: File) => {
+    setExtraTextUploading(true);
+    try {
+      const res = await apiClient.uploadFile<{ id: string; name: string; size: number; path: string }>("/api/library/upload/ref-text", file);
+      setExtraTextFiles((prev) => [...prev, { id: res.id, name: res.name, size: res.size, path: res.path }]);
+    } catch (err) {
+      setExtraTextFileError(err instanceof Error ? err.message : "Ошибка загрузки");
+    } finally {
+      setExtraTextUploading(false);
+    }
+  }, []);
+
   const showMainLayout = projectChoice === "create" && currentProject;
+
+  const renderStepContent = () => {
+    if (!current) return null;
+    if (current.id === "description") {
+      return (
+        <WizardStepDescription
+          descriptionValue={(data.description as string) ?? ""}
+          onDescriptionChange={(v) => setValue("description", v)}
+          onStepNext={handleStepNext}
+          voice={{
+            isRecordingVoice: voice.isRecordingVoice,
+            voiceRecordingPaused: voice.voiceRecordingPaused,
+            voiceError: voice.voiceError,
+            voiceUploading: voice.voiceUploading,
+            voiceDraftBlob: voice.voiceDraftBlob,
+            voiceDraftPlaying: voice.voiceDraftPlaying,
+            setVoiceDraftPlaying: voice.setVoiceDraftPlaying,
+            voiceFinalBlob: voice.voiceFinalBlob,
+            voiceDraftUrl: voice.voiceDraftUrl,
+            voiceFinalUrl: voice.voiceFinalUrl,
+            voiceDraftAudioRef: voice.voiceDraftAudioRef,
+            startVoiceRecording: voice.startVoiceRecording,
+            pauseVoiceRecording: voice.pauseVoiceRecording,
+            finishPausedRecording: voice.finishPausedRecording,
+            continueFromDraft: voice.continueFromDraft,
+            voiceDraftPlayPause: voice.voiceDraftPlayPause,
+            voiceFinalRemove: voice.voiceFinalRemove,
+            clearDraftAndChunks: voice.clearDraftAndChunks,
+          }}
+        />
+      );
+    }
+    if (current.id === "refs") {
+      return (
+        <WizardStepRefs
+          refsLinkInput={refsLinkInput}
+          setRefsLinkInput={setRefsLinkInput}
+          refsLinkError={refsLinkError}
+          setRefsLinkError={setRefsLinkError}
+          refsFiles={refsFiles}
+          setRefsFiles={setRefsFiles}
+          refsFileError={refsFileError}
+          setRefsFileError={setRefsFileError}
+          refsUploading={refsUploading}
+          refsFileInputRef={refsFileInputRef}
+          getList={getList}
+          setData={setData}
+          toggleList={toggleList}
+          onUploadRefFile={uploadRefFile}
+        />
+      );
+    }
+    if (current.id === "tech") return <WizardStepTech getSet={getSet} setValue={setValue} />;
+    if (current.id === "instruments") return <WizardStepInstruments getList={getList} toggleList={toggleList} />;
+    if (current.id === "structure") return <WizardStepStructure getSet={getSet} getList={getList} setValue={setValue} toggleList={toggleList} />;
+    if (current.id === "context") return <WizardStepContext getList={getList} getSet={getSet} toggleList={toggleList} setValue={setValue} />;
+    if (current.id === "extra") {
+      return (
+        <WizardStepExtra
+          getList={getList}
+          toggleList={toggleList}
+          extraTextFiles={extraTextFiles}
+          setExtraTextFiles={setExtraTextFiles}
+          extraTextFileError={extraTextFileError}
+          setExtraTextFileError={setExtraTextFileError}
+          extraTextUploading={extraTextUploading}
+          extraTextFileInputRef={extraTextFileInputRef}
+          onUploadTextFile={uploadExtraTextFile}
+        />
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex flex-col">
       <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur shrink-0">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold">Пошаговый конструктор</h1>
-          <Link
-            href="/create"
-            className="text-sm text-gray-400 hover:text-white transition"
-          >
+          <Link href="/create" className="text-sm text-gray-400 hover:text-white transition">
             ← Назад
           </Link>
         </div>
       </header>
 
-      {/* Модальное окно: Создать проект / Выбрать существующий */}
       {projectChoice === null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="project-choice-title"
-        >
-          <div className="bg-gray-800/95 rounded-2xl border border-gray-700 shadow-xl max-w-md w-full p-6">
-            <h2 id="project-choice-title" className="text-lg font-medium mb-4">
-              Начать с проекта
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="wizard-project-name" className="block text-sm text-gray-400 mb-1">
-                  Имя проекта
-                </label>
-                <input
-                  id="wizard-project-name"
-                  type="text"
-                  placeholder="Мой_проект"
-                  className="w-full bg-gray-900 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700"
-                  value={projectName}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\s/g, "");
-                    setProjectName(v);
-                    if (createError) setCreateError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === " ") e.preventDefault();
-                  }}
-                  aria-invalid={!!createError}
-                  aria-describedby={createError ? "project-name-error" : undefined}
-                />
-                {createError && (
-                  <p id="project-name-error" className="mt-1 text-sm text-red-400" role="alert">
-                    {createError}
-                  </p>
-                )}
-                <p className="mt-1 text-xs text-gray-500">
-                  Без пробелов; буквы, цифры, дефис и подчёркивание.
-                </p>
-              </div>
-              <button
-                onClick={() => handleCreateProject()}
-                className="w-full px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 border border-transparent font-medium transition"
-              >
-                Создать проект
-              </button>
-              <button
-                onClick={() => setProjectChoice("choose")}
-                className="w-full text-left px-4 py-3 rounded-xl bg-gray-700/50 hover:bg-gray-700 border border-gray-700 hover:border-purple-500/50 transition font-medium"
-              >
-                Выбрать существующий проект
-              </button>
-            </div>
-          </div>
-        </div>
+        <WizardProjectModal
+          projectName={projectName}
+          setProjectName={setProjectName}
+          createError={createError}
+          setCreateError={setCreateError}
+          onCreate={handleCreateProject}
+          onChooseExisting={() => setProjectChoice("choose")}
+        />
       )}
 
-      {/* Экран выбора существующего проекта (проекты из /library) */}
       {projectChoice === "choose" && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-xl">
-            <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
-              <h2 className="text-lg font-medium mb-4">Выберите проект</h2>
-              {projectsError && (
-                <p className="text-red-400 text-sm mb-4" role="alert">
-                  {projectsError}
-                </p>
-              )}
-              {projectsLoading && (
-                <p className="text-gray-400 text-sm mb-4">Загрузка проектов…</p>
-              )}
-              {!projectsLoading && projects.length === 0 && (
-                <>
-                  <p className="text-gray-400 text-sm mb-4">
-                    Пока нет сохранённых проектов. Создайте новый.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setProjectChoice(null);
-                      setProjectName("");
-                      setCreateError(null);
-                    }}
-                    className="w-full px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 border border-transparent font-medium transition"
-                  >
-                    Создать проект
-                  </button>
-                </>
-              )}
-              {!projectsLoading && projects.length > 0 && (
-                <div className="space-y-2">
-                  {projects.map((proj) => (
-                    <button
-                      key={proj.id}
-                      onClick={() => handleChooseProject(proj)}
-                      className="w-full text-left px-4 py-3 rounded-xl bg-gray-700/50 hover:bg-gray-700 border border-gray-700 hover:border-purple-500/50 transition"
-                    >
-                      <span className="font-medium">{proj.name}</span>
-                      <span className="text-gray-500 text-sm ml-2">
-                        {new Date(proj.created_at).toLocaleDateString("ru-RU")}
-                      </span>
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => {
-                      setProjectChoice(null);
-                      setProjectName("");
-                      setCreateError(null);
-                    }}
-                    className="w-full px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white transition border border-gray-700 hover:border-gray-600"
-                  >
-                    + Создать новый проект
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <WizardChooseProject
+          projects={projects}
+          loading={projectsLoading}
+          error={projectsError}
+          onSelect={handleChooseProject}
+          onCreateNew={() => {
+            setProjectChoice(null);
+            setProjectName("");
+            setCreateError(null);
+          }}
+        />
       )}
 
-      {/* Единый layout: сайдбар проекта + контент (Что создаём? + шаги) + чат */}
-      {showMainLayout && (
+      {showMainLayout && currentProject && (
         <div className="flex-1 flex flex-row min-h-0">
-          <ProjectDirSidebar
-            projectName={currentProject.name}
-            projectId={currentProject.id}
-            files={currentProject.files}
-          />
+          <ProjectDirSidebar projectName={currentProject.name} projectId={currentProject.id} files={currentProject.files} />
           <div className="flex-1 flex flex-col md:flex-row min-h-0 min-w-0">
             <main className="flex-1 min-w-0 overflow-auto">
-              <div className="container mx-auto px-4 py-8 max-w-xl space-y-6">
-                {/* Пока тип не выбран — только блок «Что создаём?» */}
+              <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl w-full space-y-6">
                 {selectedType === null ? (
                   <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
                     <h2 className="text-lg font-medium mb-4">Что создаём?</h2>
@@ -254,61 +272,32 @@ export default function WizardPage() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {/* Выбранный тип закреплён слева вверху на странице формы */}
                     <p className="text-sm text-gray-400">
-                      <span className="text-gray-500">Создаём:</span>{" "}
-                      <span className="font-medium text-white">{selectedType}</span>
+                      <span className="text-gray-500">Создаём:</span> <span className="font-medium text-white">{selectedType}</span>
                     </p>
-
-                    {/* Блок текущего шага: Настроение?, Детали и т.д. */}
                     <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
-                      <h2 className="text-lg font-medium mb-4">{current.title}</h2>
-                      {current.type === "text" && (
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="Опиши настроение"
-                            className="w-full bg-gray-900 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700"
-                            value={(data[current.id] as string) ?? ""}
-                            onChange={(e) =>
-                              setData((prev) => ({ ...prev, [current.id]: e.target.value }))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") setStep(step + 1);
-                            }}
-                          />
-                          <div className="mt-4 flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setStep(step + 1)}
-                              className="bg-purple-600 hover:bg-purple-500 rounded-xl px-4 py-2 font-medium transition"
-                            >
-                              Далее
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setStep(step + 1)}
-                              className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 transition"
-                            >
+                      <h2 className="text-lg font-medium mb-4">{current?.title}</h2>
+                      {renderStepContent()}
+                      <div className="mt-6 flex items-center justify-between gap-4 border-t border-gray-700/50 pt-4">
+                        <button type="button" onClick={handleBackStep} className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-white transition">
+                          Назад
+                        </button>
+                        <div className="flex items-center gap-2 ml-auto">
+                          {!isLast && (
+                            <button type="button" onClick={() => setStep(step + 1)} className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-white transition">
                               Пропустить
                             </button>
-                          </div>
-                        </div>
-                      )}
-                      {current.type === "sliders" && (
-                        <div>
-                          <p className="text-gray-400 mb-4">
-                            Энергия, сложность — позже слайдеры.
-                          </p>
+                          )}
                           <button
                             type="button"
-                            onClick={() => setStep(step + 1)}
-                            className="bg-purple-600 hover:bg-purple-500 rounded-xl px-4 py-2 font-medium transition"
+                            onClick={() => handleStepNext()}
+                            className="bg-purple-600 hover:bg-purple-500 rounded-xl px-4 py-2 font-medium transition disabled:opacity-50"
+                            disabled={current?.id === "description" && !!voice.voiceFinalBlob && voice.voiceUploading}
                           >
                             {isLast ? "Создать" : "Далее"}
                           </button>
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -1,10 +1,13 @@
-"""Эндпоинты аватара: действия, профиль, генерация, объяснения."""
-from fastapi import APIRouter, Depends, HTTPException, Body
+"""Эндпоинты аватара: действия, профиль, генерация, голосовое описание, объяснения."""
+from fastapi import APIRouter, Depends, HTTPException, Body, UploadFile, File, Form
 
 from api.dependencies import get_current_user, get_avatar_manager
 from core.memory_manager import MemoryManager
+from services.upload_validation import validate_voice_description, save_upload
 
 router = APIRouter()
+
+MAX_VOICE_READ = 12 * 1024 * 1024  # 12 MB
 
 
 @router.post("/action")
@@ -65,6 +68,61 @@ async def explain_decision(
     if not avatar:
         raise HTTPException(status_code=404, detail="Avatar not found")
     return avatar.explain_decision(body.get("decision", {}), body.get("context", {}))
+
+
+@router.post("/voice-description")
+async def voice_description(
+    file: UploadFile = File(..., description="Голосовая запись (webm/ogg)"),
+    project_id: str = Form(..., description="ID проекта визарда"),
+    creation_type: str = Form(..., description="Полная композиция / Стем/партия / Модификация"),
+    transcription: str | None = Form(None, description="Текст из речи (если есть с фронта)"),
+    user: dict = Depends(get_current_user),
+    avatar_manager: MemoryManager = Depends(get_avatar_manager),
+):
+    """
+    Запись голосового описания (шаг 2 визарда).
+    Сохраняет аудио в окружении проекта и добавляет действие в историю аватара
+    для учёта при создании цифрового аватара и звуковой сущности.
+    """
+    if not file.filename:
+        file.filename = "recording.webm"
+    content = await file.read()
+    if len(content) > MAX_VOICE_READ:
+        raise HTTPException(status_code=400, detail="Запись слишком большая")
+    err = validate_voice_description(file.filename or "recording.webm", content)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    ext = ".webm"
+    if (file.filename or "").lower().endswith(".ogg"):
+        ext = ".ogg"
+    result = save_upload(user["id"], content, ext, "voice")
+    audio_path = result.get("path", "")
+    avatar = avatar_manager.get_or_create_avatar(user["id"])
+    action_data = {
+        "type": "voice_description",
+        "input_type": "voice",
+        "input": {
+            "project_id": project_id,
+            "creation_type": creation_type,
+            "audio_path": audio_path,
+            "audio_id": result.get("id"),
+            "transcription": (transcription or "").strip() or None,
+        },
+        "output": {},
+        "context": {
+            "channel": "wizard",
+            "creation_type": creation_type,
+            "project_id": project_id,
+        },
+    }
+    avatar.add_action(action_data)
+    avatar_manager.save_avatar(user["id"], avatar)
+    return {
+        "status": "success",
+        "audio_id": result.get("id"),
+        "path": audio_path,
+        "transcription": (transcription or "").strip() or None,
+    }
 
 
 @router.post("/chat")

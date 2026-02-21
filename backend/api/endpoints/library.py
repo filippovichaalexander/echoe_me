@@ -1,9 +1,9 @@
-"""API библиотеки: треки, проекты, лимиты по тарифам."""
+"""API библиотеки: треки, проекты, загрузка файлов (референсы)."""
 import re
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, UploadFile, File
 
 from api.dependencies import get_current_user
-from models.subscription import get_limits_for_tier, check_quota
+from models.subscription import get_limits_for_tier
 from services.library_store import (
     get_tracks,
     add_track,
@@ -11,6 +11,13 @@ from services.library_store import (
     get_usage,
     get_projects,
     add_project,
+)
+from services.upload_validation import (
+    validate_ref_audio,
+    validate_ref_text,
+    save_upload,
+    REFS_AUDIO_EXTENSIONS,
+    TEXT_EXTENSIONS,
 )
 
 router = APIRouter()
@@ -99,3 +106,60 @@ async def create_project(
             detail=f"Достигнут лимит проектов ({max_projects}) для вашего тарифа",
         )
     return add_project(user["id"], name)
+
+
+# --- Загрузка файлов (валидация и безопасность на бэкенде) ---
+
+MAX_UPLOAD_READ = 220 * 1024 * 1024  # чуть больше макс. размера одного файла (200 MB)
+
+
+@router.post("/upload/ref-audio")
+async def upload_ref_audio(
+    file: UploadFile = File(..., description="Аудиофайл референса"),
+    user: dict = Depends(get_current_user),
+):
+    """
+    Загрузка аудио-референса (шаг 3 визарда).
+    Валидация формата и размера на бэкенде; безопасное сохранение.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Имя файла отсутствует")
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_READ:
+        raise HTTPException(status_code=400, detail="Файл слишком большой")
+    content_type = file.content_type or None
+    err = validate_ref_audio(file.filename, content, content_type)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    ext = "." + (file.filename.split(".")[-1].lower() if "." in file.filename else "bin")
+    if ext not in REFS_AUDIO_EXTENSIONS:
+        ext = ".bin"
+    result = save_upload(user["id"], content, ext, "ref-audio")
+    result["name"] = file.filename
+    return result
+
+
+@router.post("/upload/ref-text")
+async def upload_ref_text(
+    file: UploadFile = File(..., description="Текстовый файл (txt, md, rtf, pdf)"),
+    user: dict = Depends(get_current_user),
+):
+    """
+    Загрузка текстового файла (шаг 8 визарда).
+    Валидация формата, размера и magic bytes на бэкенде; безопасное сохранение.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Имя файла отсутствует")
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_READ:
+        raise HTTPException(status_code=400, detail="Файл слишком большой")
+    content_type = file.content_type or None
+    err = validate_ref_text(file.filename, content, content_type)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    ext = "." + (file.filename.split(".")[-1].lower() if "." in file.filename else "txt")
+    if ext not in TEXT_EXTENSIONS:
+        ext = ".txt"
+    result = save_upload(user["id"], content, ext, "ref-text")
+    result["name"] = file.filename
+    return result
