@@ -1,6 +1,6 @@
 "use client";
 
-import { DESCRIPTION_EXAMPLES } from "../constants";
+import { DESCRIPTION_EXAMPLES, DESCRIPTION_MAX_LENGTH } from "../constants";
 
 export interface WizardStepDescriptionProps {
   descriptionValue: string;
@@ -34,22 +34,32 @@ export function WizardStepDescription({
   onStepNext,
   voice: v,
 }: WizardStepDescriptionProps) {
+  const len = descriptionValue.length;
+  const counterColor =
+    len > DESCRIPTION_MAX_LENGTH ? "text-red-400" : len >= 100 ? "text-green-400" : "text-yellow-400";
+
   return (
     <div className="space-y-4">
       <p className="text-gray-300 text-sm">📝 Опиши, что хочешь получить</p>
       <div className="relative">
-        <input
-          type="text"
+        <textarea
           placeholder="Например: эпичный оркестр для трейлера..."
-          className="w-full bg-gray-900 rounded-lg px-4 py-3 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700 disabled:opacity-60 disabled:pointer-events-none"
+          rows={4}
+          className="w-full bg-gray-900 rounded-lg px-4 py-3 pr-16 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700 disabled:opacity-60 disabled:pointer-events-none resize-y min-h-[6rem]"
           value={descriptionValue}
           onChange={(e) => onDescriptionChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") onStepNext();
+            if (e.key === "Enter" && !e.shiftKey) e.preventDefault();
           }}
           disabled={!!v.voiceFinalBlob}
         />
+        <div className="absolute bottom-3 right-3 pointer-events-none">
+          <span className={`text-xs tabular-nums ${counterColor}`}>{len}/{DESCRIPTION_MAX_LENGTH}</span>
+        </div>
       </div>
+      <p className="text-xs text-gray-500">
+        Рекомендуем написать не менее 100 символов (не обязательное требование). Не более {DESCRIPTION_MAX_LENGTH} символов.
+      </p>
 
       {v.voiceDraftBlob && v.voiceDraftUrl && !v.voiceFinalBlob && (
         <div className="rounded-xl border border-gray-600 bg-gray-900/50 p-3 space-y-2">

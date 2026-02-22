@@ -12,6 +12,10 @@ export const STEPS = [
   { id: "extra", title: "ШАГ 8: ДОПОЛНИТЕЛЬНЫЕ ПОЖЕЛАНИЯ" },
 ] as const;
 
+/** Лимиты поля описания (шаг 2) */
+export const DESCRIPTION_MAX_LENGTH = 500;
+export const DESCRIPTION_RECOMMENDED_MIN = 100;
+
 export const DESCRIPTION_EXAMPLES = [
   "Эпичная оркестровая музыка для трейлера фильма",
   "Минималистичный техно с глубоким басом для ночного клуба",

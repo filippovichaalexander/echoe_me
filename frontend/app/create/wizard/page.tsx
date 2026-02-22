@@ -8,7 +8,7 @@ import { useLibraryProjects } from "@/lib/hooks/useLibraryProjects";
 import type { LibraryProject } from "@/lib/api/types";
 import { apiClient } from "@/lib/api/client";
 
-import { TYPE_OPTIONS, STEPS } from "./constants";
+import { TYPE_OPTIONS, STEPS, DESCRIPTION_MAX_LENGTH } from "./constants";
 import { toWizardProject } from "./types";
 import { validateProjectName } from "./validation";
 import { useWizardData } from "./useWizardData";
@@ -92,7 +92,7 @@ export default function WizardPage() {
     if (isDescriptionStep && blobToUpload && currentProject && selectedType) {
       voice.setVoiceUploading(true);
       try {
-        const text = (data.description as string) ?? "";
+        const text = ((data.description as string) ?? "").slice(0, DESCRIPTION_MAX_LENGTH);
         await apiClient.uploadVoiceDescription("/api/avatar/voice-description", blobToUpload, {
           projectId: currentProject.id,
           creationType: selectedType,
