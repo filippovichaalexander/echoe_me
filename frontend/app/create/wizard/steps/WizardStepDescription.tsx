@@ -1,14 +1,23 @@
 "use client";
 
-import { DESCRIPTION_EXAMPLES, DESCRIPTION_MAX_LENGTH } from "../constants";
+import { DESCRIPTION_EXAMPLES, DESCRIPTION_MAX_LENGTH, RECORDING_MIN_SEC, RECORDING_MAX_SEC } from "../constants";
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export interface WizardStepDescriptionProps {
   descriptionValue: string;
   onDescriptionChange: (value: string) => void;
   onStepNext: () => void;
-  voice: {
+    voice: {
     isRecordingVoice: boolean;
     voiceRecordingPaused: boolean;
+    voiceDurationError: "short" | "long" | null;
+    voiceFinalDurationSec: number | null;
+    voicePausedDurationMs: number;
     voiceError: string | null;
     voiceUploading: boolean;
     voiceDraftBlob: Blob | null;
@@ -61,6 +70,9 @@ export function WizardStepDescription({
       <p className="text-xs text-gray-500">
         Рекомендуем написать не менее 100 символов (не обязательное требование). Не более {DESCRIPTION_MAX_LENGTH} символов.
       </p>
+      <p className="text-xs text-gray-500">
+        Голосовая запись: не менее {RECORDING_MIN_SEC} с, не более {RECORDING_MAX_SEC} с.
+      </p>
 
       {v.voiceDraftBlob && v.voiceDraftUrl && !v.voiceFinalBlob && (
         <div className="rounded-xl border border-gray-600 bg-gray-900/50 p-3 space-y-2">
@@ -103,7 +115,9 @@ export function WizardStepDescription({
       {v.voiceFinalBlob && v.voiceFinalUrl && (
         <div className="rounded-xl border border-gray-600 bg-gray-900/50 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1 flex items-center gap-2">
-            <span className="text-sm text-gray-300 shrink-0">Голосовая запись</span>
+            <span className="text-sm text-gray-300 shrink-0">
+              Голосовая запись{v.voiceFinalDurationSec != null ? ` (${formatDuration(v.voiceFinalDurationSec)})` : ""}
+            </span>
             <audio src={v.voiceFinalUrl} controls className="h-8 max-w-full" />
           </div>
           <button
@@ -127,8 +141,15 @@ export function WizardStepDescription({
       )}
 
       {v.voiceRecordingPaused && !v.voiceDraftBlob && !v.voiceFinalBlob && (
-        <div className="rounded-xl border border-gray-600 bg-gray-900/50 p-3 flex flex-wrap items-center gap-2">
-          <p className="text-xs text-gray-400 w-full">Запись приостановлена. Прослушать, продолжить или завершить.</p>
+        <div className={`rounded-xl border p-3 flex flex-wrap items-center gap-2 ${v.voiceDurationError ? "border-red-500/70 bg-red-900/20" : "border-gray-600 bg-gray-900/50"}`}>
+          <p className="text-xs text-gray-400 w-full">
+            Запись приостановлена{v.voicePausedDurationMs > 0 ? ` · ${formatDuration(v.voicePausedDurationMs / 1000)}` : ""}. Прослушать, продолжить или удалить.
+          </p>
+          {v.voiceDurationError && (
+            <p className="text-sm text-red-400 w-full font-medium" role="alert">
+              {v.voiceDurationError === "short" ? `Аудиозапись слишком короткая (минимум ${RECORDING_MIN_SEC} с). Запишите дольше или удалите.` : `Аудиозапись слишком длинная (максимум ${RECORDING_MAX_SEC} с). Удалите и запишите короче.`}
+            </p>
+          )}
           <button type="button" onClick={v.playPausedChunks} className="rounded-xl px-4 py-2 font-medium bg-gray-700 hover:bg-gray-600 text-gray-300 transition">
             ▶ Воспроизвести
           </button>

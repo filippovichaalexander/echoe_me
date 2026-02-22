@@ -16,6 +16,10 @@ export const STEPS = [
 export const DESCRIPTION_MAX_LENGTH = 500;
 export const DESCRIPTION_RECOMMENDED_MIN = 100;
 
+/** Ограничения длительности голосовой записи (шаг 2), в секундах */
+export const RECORDING_MIN_SEC = 3;
+export const RECORDING_MAX_SEC = 60;
+
 export const DESCRIPTION_EXAMPLES = [
   "Эпичная оркестровая музыка для трейлера фильма",
   "Минималистичный техно с глубоким басом для ночного клуба",

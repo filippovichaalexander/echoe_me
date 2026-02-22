@@ -8,7 +8,7 @@ import { useLibraryProjects } from "@/lib/hooks/useLibraryProjects";
 import type { LibraryProject } from "@/lib/api/types";
 import { apiClient } from "@/lib/api/client";
 
-import { TYPE_OPTIONS, STEPS, DESCRIPTION_MAX_LENGTH } from "./constants";
+import { TYPE_OPTIONS, STEPS, DESCRIPTION_MAX_LENGTH, RECORDING_MIN_SEC } from "./constants";
 import { toWizardProject } from "./types";
 import { validateProjectName } from "./validation";
 import { useWizardData } from "./useWizardData";
@@ -90,6 +90,10 @@ export default function WizardPage() {
     const isDescriptionStep = current?.id === "description";
     const blobToUpload = voice.getBlobToUpload();
     if (isDescriptionStep && blobToUpload && currentProject && selectedType) {
+      if (voice.voiceRecordingPaused && voice.getTotalDurationMs() < RECORDING_MIN_SEC * 1000) {
+        voice.setVoiceError(`Минимум ${RECORDING_MIN_SEC} сек записи. Запишите дольше или удалите запись.`);
+        return;
+      }
       voice.setVoiceUploading(true);
       try {
         await apiClient.uploadVoiceDescription("/api/avatar/voice-description", blobToUpload, {
@@ -154,6 +158,9 @@ export default function WizardPage() {
           voice={{
             isRecordingVoice: voice.isRecordingVoice,
             voiceRecordingPaused: voice.voiceRecordingPaused,
+            voiceDurationError: voice.voiceDurationError,
+            voiceFinalDurationSec: voice.voiceFinalDurationSec,
+            voicePausedDurationMs: voice.voicePausedDurationMs,
             voiceError: voice.voiceError,
             voiceUploading: voice.voiceUploading,
             voiceDraftBlob: voice.voiceDraftBlob,
@@ -296,7 +303,7 @@ export default function WizardPage() {
                             type="button"
                             onClick={() => handleStepNext()}
                             className="bg-purple-600 hover:bg-purple-500 rounded-xl px-4 py-2 font-medium transition disabled:opacity-50"
-                            disabled={current?.id === "description" && (voice.voiceUploading || voice.isRecordingVoice)}
+                            disabled={current?.id === "description" && (voice.voiceUploading || voice.isRecordingVoice || (!!voice.getBlobToUpload() && !!voice.voiceDurationError))}
                           >
                             {isLast ? "Создать" : "Далее"}
                           </button>

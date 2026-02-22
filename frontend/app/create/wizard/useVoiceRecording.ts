@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { saveVoiceToStorage, loadVoiceFromStorage, clearVoiceFromStorage } from "./voiceStorage";
 import type { WizardProject } from "./types";
+import { RECORDING_MIN_SEC, RECORDING_MAX_SEC } from "./constants";
 
 export interface UseVoiceRecordingProps {
   currentProject: WizardProject | null;
@@ -21,12 +22,17 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
   const [voiceFinalBlob, setVoiceFinalBlob] = useState<Blob | null>(null);
   const [voiceDraftUrl, setVoiceDraftUrl] = useState<string | null>(null);
   const [voiceFinalUrl, setVoiceFinalUrl] = useState<string | null>(null);
+  const [voiceDurationError, setVoiceDurationError] = useState<"short" | "long" | null>(null);
+  const [voiceFinalDurationSec, setVoiceFinalDurationSec] = useState<number | null>(null);
+  const [voicePausedDurationMs, setVoicePausedDurationMs] = useState<number>(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const voiceChunksRef = useRef<Blob[]>([]);
   const voiceRecognitionRef = useRef<{ stop(): void } | null>(null);
   const voiceTranscriptRef = useRef<string>("");
   const voiceDraftAudioRef = useRef<HTMLAudioElement | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
+  const totalRecordedMsRef = useRef<number>(0);
 
   useEffect(() => {
     if (voiceDraftBlob) {
@@ -44,12 +50,19 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     if (voiceFinalBlob) {
       const url = URL.createObjectURL(voiceFinalBlob);
       setVoiceFinalUrl(url);
+      const audio = new Audio(url);
+      audio.onloadedmetadata = () => {
+        setVoiceFinalDurationSec(audio.duration);
+      };
+      audio.onerror = () => setVoiceFinalDurationSec(null);
       return () => {
         URL.revokeObjectURL(url);
         setVoiceFinalUrl(null);
+        setVoiceFinalDurationSec(null);
       };
     }
     setVoiceFinalUrl(null);
+    setVoiceFinalDurationSec(null);
   }, [voiceFinalBlob]);
 
   useEffect(() => {
@@ -60,10 +73,14 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
 
   const startVoiceRecording = useCallback(async (appendToExisting = false) => {
     setVoiceError(null);
+    setVoiceDurationError(null);
     if (!appendToExisting) {
+      setVoicePausedDurationMs(0);
       voiceChunksRef.current = [];
       voiceTranscriptRef.current = "";
+      totalRecordedMsRef.current = 0;
     }
+    recordingStartTimeRef.current = Date.now();
     setVoiceRecordingPaused(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -121,6 +138,7 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
       setIsRecordingVoice(false);
       return;
     }
+    totalRecordedMsRef.current += Date.now() - recordingStartTimeRef.current;
     const rec = voiceRecognitionRef.current;
     if (rec) {
       try {
@@ -132,15 +150,38 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     mr.onstop = () => {
       setIsRecordingVoice(false);
       setVoiceRecordingPaused(true);
+      const totalMs = totalRecordedMsRef.current;
+      setVoicePausedDurationMs(totalMs);
+      if (totalMs < RECORDING_MIN_SEC * 1000) setVoiceDurationError("short");
+      else if (totalMs > RECORDING_MAX_SEC * 1000) setVoiceDurationError("long");
+      else setVoiceDurationError(null);
     };
     mr.stop();
   }, []);
 
+  /** Авто-пауза при достижении максимальной длительности записи (60 сек) */
+  const pauseVoiceRecordingRef = useRef(pauseVoiceRecording);
+  pauseVoiceRecordingRef.current = pauseVoiceRecording;
+  useEffect(() => {
+    if (!isRecordingVoice) return;
+    const interval = setInterval(() => {
+      const totalMs = totalRecordedMsRef.current + (Date.now() - recordingStartTimeRef.current);
+      if (totalMs >= RECORDING_MAX_SEC * 1000) {
+        pauseVoiceRecordingRef.current();
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [isRecordingVoice]);
+
   /** Отменить приостановленную запись: очистить чанки и выйти из состояния паузы */
   const cancelPausedRecording = useCallback(() => {
     voiceChunksRef.current = [];
+    totalRecordedMsRef.current = 0;
+    recordingStartTimeRef.current = 0;
     setVoiceRecordingPaused(false);
     setVoiceError(null);
+    setVoiceDurationError(null);
+    setVoicePausedDurationMs(0);
   }, []);
 
   /** Воспроизвести записанные чанки в состоянии «приостановлено» (без перехода в черновик) */
@@ -180,7 +221,12 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     setVoiceRecordingPaused(false);
     setIsRecordingVoice(false);
     setVoiceError(null);
+    setVoiceDurationError(null);
+    setVoiceFinalDurationSec(null);
+    setVoicePausedDurationMs(0);
     voiceChunksRef.current = [];
+    totalRecordedMsRef.current = 0;
+    recordingStartTimeRef.current = 0;
     if (currentProject) clearVoiceFromStorage(currentProject.id);
   }, [currentProject]);
 
@@ -191,7 +237,11 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
       setVoiceDraftBlob(null);
       setVoiceRecordingPaused(false);
       setIsRecordingVoice(false);
+      setVoiceDurationError(null);
+      setVoicePausedDurationMs(0);
       voiceChunksRef.current = [];
+      totalRecordedMsRef.current = 0;
+      recordingStartTimeRef.current = 0;
       if (currentProject) saveVoiceToStorage(blob, currentProject.id);
     },
     [currentProject]
@@ -211,9 +261,18 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     return null;
   }, [voiceFinalBlob, voiceDraftBlob, voiceRecordingPaused]);
 
+  /** Текущая длительность записи в миллисекундах (для проверки мин/макс) */
+  const getTotalDurationMs = useCallback((): number => {
+    if (isRecordingVoice) return totalRecordedMsRef.current + (Date.now() - recordingStartTimeRef.current);
+    return totalRecordedMsRef.current;
+  }, [isRecordingVoice]);
+
   return {
     isRecordingVoice,
     voiceRecordingPaused,
+    voiceDurationError,
+    voiceFinalDurationSec,
+    voicePausedDurationMs,
     voiceError,
     setVoiceError,
     voiceUploading,
@@ -236,5 +295,6 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     onUploadSuccess,
     clearDraftAndChunks,
     getBlobToUpload,
+    getTotalDurationMs,
   };
 }
