@@ -88,15 +88,14 @@ export default function WizardPage() {
 
   const handleStepNext = useCallback(async () => {
     const isDescriptionStep = current?.id === "description";
-    const blobToUpload = voice.voiceFinalBlob ?? voice.voiceDraftBlob;
+    const blobToUpload = voice.getBlobToUpload();
     if (isDescriptionStep && blobToUpload && currentProject && selectedType) {
       voice.setVoiceUploading(true);
       try {
-        const text = ((data.description as string) ?? "").slice(0, DESCRIPTION_MAX_LENGTH);
         await apiClient.uploadVoiceDescription("/api/avatar/voice-description", blobToUpload, {
           projectId: currentProject.id,
           creationType: selectedType,
-          transcription: text || undefined,
+          transcription: undefined,
         });
         voice.setVoiceError(null);
         voice.onUploadSuccess(blobToUpload);
@@ -108,11 +107,15 @@ export default function WizardPage() {
       }
       return;
     }
+    if (isDescriptionStep && !blobToUpload) {
+      setStep((s) => s + 1);
+      return;
+    }
     if (step + 1 < wizardSteps.length) setStep((s) => s + 1);
     else {
       /* TODO: submit */
     }
-  }, [current, voice.voiceFinalBlob, voice.voiceDraftBlob, currentProject, selectedType, data.description, step, wizardSteps.length, voice]);
+  }, [current, voice.getBlobToUpload, currentProject, selectedType, step, wizardSteps.length, voice]);
 
   const uploadRefFile = useCallback(async (file: File) => {
     setRefsUploading(true);
@@ -162,7 +165,8 @@ export default function WizardPage() {
             voiceDraftAudioRef: voice.voiceDraftAudioRef,
             startVoiceRecording: voice.startVoiceRecording,
             pauseVoiceRecording: voice.pauseVoiceRecording,
-            finishPausedRecording: voice.finishPausedRecording,
+            cancelPausedRecording: voice.cancelPausedRecording,
+            playPausedChunks: voice.playPausedChunks,
             continueFromDraft: voice.continueFromDraft,
             voiceDraftPlayPause: voice.voiceDraftPlayPause,
             voiceFinalRemove: voice.voiceFinalRemove,
@@ -292,7 +296,7 @@ export default function WizardPage() {
                             type="button"
                             onClick={() => handleStepNext()}
                             className="bg-purple-600 hover:bg-purple-500 rounded-xl px-4 py-2 font-medium transition disabled:opacity-50"
-                            disabled={current?.id === "description" && !!voice.voiceFinalBlob && voice.voiceUploading}
+                            disabled={current?.id === "description" && (voice.voiceUploading || voice.isRecordingVoice)}
                           >
                             {isLast ? "Создать" : "Далее"}
                           </button>

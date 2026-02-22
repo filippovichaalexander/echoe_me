@@ -20,7 +20,8 @@ export interface WizardStepDescriptionProps {
     voiceDraftAudioRef: React.RefObject<HTMLAudioElement | null>;
     startVoiceRecording: (append?: boolean) => void;
     pauseVoiceRecording: () => void;
-    finishPausedRecording: () => void;
+    cancelPausedRecording: () => void;
+    playPausedChunks: () => void;
     continueFromDraft: () => void;
     voiceDraftPlayPause: () => void;
     voiceFinalRemove: () => void;
@@ -51,7 +52,7 @@ export function WizardStepDescription({
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) e.preventDefault();
           }}
-          disabled={!!v.voiceFinalBlob}
+          disabled={!!v.voiceFinalBlob || !!v.voiceDraftBlob || v.isRecordingVoice || v.voiceRecordingPaused}
         />
         <div className="absolute bottom-3 right-3 pointer-events-none">
           <span className={`text-xs tabular-nums ${counterColor}`}>{len}/{DESCRIPTION_MAX_LENGTH}</span>
@@ -107,7 +108,11 @@ export function WizardStepDescription({
           </div>
           <button
             type="button"
-            onClick={v.voiceFinalRemove}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              v.voiceFinalRemove();
+            }}
             className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800 transition"
             title="Удалить запись"
             aria-label="Удалить запись"
@@ -123,12 +128,15 @@ export function WizardStepDescription({
 
       {v.voiceRecordingPaused && !v.voiceDraftBlob && !v.voiceFinalBlob && (
         <div className="rounded-xl border border-gray-600 bg-gray-900/50 p-3 flex flex-wrap items-center gap-2">
-          <p className="text-xs text-gray-400 w-full">Запись приостановлена. Продолжить или завершить.</p>
+          <p className="text-xs text-gray-400 w-full">Запись приостановлена. Прослушать, продолжить или завершить.</p>
+          <button type="button" onClick={v.playPausedChunks} className="rounded-xl px-4 py-2 font-medium bg-gray-700 hover:bg-gray-600 text-gray-300 transition">
+            ▶ Воспроизвести
+          </button>
           <button type="button" onClick={() => v.startVoiceRecording(true)} className="rounded-xl px-4 py-2 font-medium bg-green-600 hover:bg-green-500 text-white transition">
             ▶ Продолжить запись
           </button>
-          <button type="button" onClick={v.finishPausedRecording} className="rounded-xl px-4 py-2 font-medium bg-gray-700 hover:bg-gray-600 text-gray-300 transition">
-            Завершить запись
+          <button type="button" onClick={v.cancelPausedRecording} className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-red-400 hover:bg-gray-800 transition" title="Удалить запись">
+            Удаление
           </button>
         </div>
       )}

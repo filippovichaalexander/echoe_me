@@ -136,21 +136,24 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     mr.stop();
   }, []);
 
-  const finishPausedRecording = useCallback(() => {
-    const chunks = voiceChunksRef.current;
-    if (chunks.length === 0) {
-      setVoiceError("Запись пустая");
-      setVoiceRecordingPaused(false);
-      return;
-    }
-    const blob = new Blob(chunks, { type: "audio/webm" });
-    const text = voiceTranscriptRef.current.trim() || dataDescription;
-    if (text) setValue("description", text);
-    setVoiceError(null);
-    setVoiceDraftBlob(blob);
-    setVoiceDraftPlaying(false);
+  /** Отменить приостановленную запись: очистить чанки и выйти из состояния паузы */
+  const cancelPausedRecording = useCallback(() => {
+    voiceChunksRef.current = [];
     setVoiceRecordingPaused(false);
-  }, [dataDescription, setValue]);
+    setVoiceError(null);
+  }, []);
+
+  /** Воспроизвести записанные чанки в состоянии «приостановлено» (без перехода в черновик) */
+  const playPausedChunks = useCallback(() => {
+    const chunks = voiceChunksRef.current;
+    if (!chunks.length) return;
+    const blob = new Blob(chunks, { type: "audio/webm" });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => URL.revokeObjectURL(url);
+    audio.onerror = () => URL.revokeObjectURL(url);
+    audio.play().catch(() => URL.revokeObjectURL(url));
+  }, []);
 
   const continueFromDraft = useCallback(() => {
     setVoiceDraftBlob(null);
@@ -169,16 +172,25 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     }
   }, [voiceDraftPlaying]);
 
+  /** Полностью удалить запись шага 2: вернуть к изначальному состоянию (финал, черновик, пауза, чанки, хранилище). */
   const voiceFinalRemove = useCallback(() => {
-    if (currentProject) clearVoiceFromStorage(currentProject.id);
     setVoiceFinalBlob(null);
+    setVoiceDraftBlob(null);
+    setVoiceDraftPlaying(false);
+    setVoiceRecordingPaused(false);
+    setIsRecordingVoice(false);
+    setVoiceError(null);
+    voiceChunksRef.current = [];
+    if (currentProject) clearVoiceFromStorage(currentProject.id);
   }, [currentProject]);
 
-  /** После успешной отправки записи на сервер — сохранить blob в UI и хранилище, очистить черновик и чанки */
+  /** После успешной отправки записи на сервер — сохранить blob в UI и хранилище, сбросить паузу/черновик/чанки */
   const onUploadSuccess = useCallback(
     (blob: Blob) => {
       setVoiceFinalBlob(blob);
       setVoiceDraftBlob(null);
+      setVoiceRecordingPaused(false);
+      setIsRecordingVoice(false);
       voiceChunksRef.current = [];
       if (currentProject) saveVoiceToStorage(blob, currentProject.id);
     },
@@ -189,6 +201,15 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     voiceChunksRef.current = [];
     setVoiceDraftBlob(null);
   }, []);
+
+  /** Blob для отправки: финал, черновик или собранный из чанков при паузе */
+  const getBlobToUpload = useCallback((): Blob | null => {
+    if (voiceFinalBlob) return voiceFinalBlob;
+    if (voiceDraftBlob) return voiceDraftBlob;
+    const chunks = voiceChunksRef.current;
+    if (voiceRecordingPaused && chunks.length > 0) return new Blob(chunks, { type: "audio/webm" });
+    return null;
+  }, [voiceFinalBlob, voiceDraftBlob, voiceRecordingPaused]);
 
   return {
     isRecordingVoice,
@@ -207,11 +228,13 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
     voiceDraftAudioRef,
     startVoiceRecording,
     pauseVoiceRecording,
-    finishPausedRecording,
+    cancelPausedRecording,
+    playPausedChunks,
     continueFromDraft,
     voiceDraftPlayPause,
     voiceFinalRemove,
     onUploadSuccess,
     clearDraftAndChunks,
+    getBlobToUpload,
   };
 }
