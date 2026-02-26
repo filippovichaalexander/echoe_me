@@ -277,9 +277,9 @@ export default function WizardPage() {
             <main className="flex-1 min-w-0 overflow-auto">
               <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-6xl w-full space-y-6">
                 {selectedType === null ? (
-                  <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+                  <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 flex flex-col min-h-[460px] max-h-[460px]">
                     <h2 className="text-lg font-medium mb-4">Что создаём?</h2>
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1 flex flex-col justify-center gap-2">
                       {TYPE_OPTIONS.map((opt) => (
                         <button
                           key={opt}
@@ -296,9 +296,11 @@ export default function WizardPage() {
                     <p className="text-sm text-gray-400">
                       <span className="text-gray-500">Создаём:</span> <span className="font-medium text-white">{selectedType}</span>
                     </p>
-                    <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+                    <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 flex flex-col min-h-[620px] max-h-[620px]">
                       <h2 className="text-lg font-medium mb-4">{current?.title}</h2>
-                      {renderStepContent()}
+                      <div className="flex-1 overflow-auto">
+                        {renderStepContent()}
+                      </div>
                       <div className="mt-6 flex items-center justify-between gap-4 border-t border-gray-700/50 pt-4">
                         <button type="button" onClick={handleBackStep} className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-white transition">
                           Назад
