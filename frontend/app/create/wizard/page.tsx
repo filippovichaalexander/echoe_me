@@ -49,6 +49,13 @@ export default function WizardPage() {
     dataDescription: (data.description as string) ?? "",
     setValue,
   });
+  const extraVoiceProject = currentProject ? { ...currentProject, id: `${currentProject.id}__extra` } : null;
+  const voiceExtra = useVoiceRecording({
+    currentProject: extraVoiceProject,
+    step,
+    dataDescription: (getSet("extra", "text") as string) ?? "",
+    setValue,
+  });
 
   useEffect(() => {
     if (projectChoice === "choose") refreshProjects();
@@ -209,8 +216,11 @@ export default function WizardPage() {
     if (current.id === "extra") {
       return (
         <WizardStepExtra
+          getSet={getSet}
+          setValue={setValue}
           getList={getList}
           toggleList={toggleList}
+          voice={voiceExtra}
           extraTextFiles={extraTextFiles}
           setExtraTextFiles={setExtraTextFiles}
           extraTextFileError={extraTextFileError}

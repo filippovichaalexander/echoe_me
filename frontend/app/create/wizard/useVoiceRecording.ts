@@ -66,10 +66,10 @@ export function useVoiceRecording({ currentProject, step, dataDescription, setVa
   }, [voiceFinalBlob]);
 
   useEffect(() => {
-    if (!currentProject || step !== 0) return;
+    if (!currentProject) return;
     const restored = loadVoiceFromStorage(currentProject.id);
     if (restored) setVoiceFinalBlob(restored);
-  }, [currentProject?.id, step]);
+  }, [currentProject?.id]);
 
   const startVoiceRecording = useCallback(async (appendToExisting = false) => {
     setVoiceError(null);

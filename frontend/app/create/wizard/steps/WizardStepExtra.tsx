@@ -1,7 +1,10 @@
-"use client";
+ "use client";
 
+import { useCallback, useRef, useState } from "react";
 import { EXTRA_TEXT_ACCEPT, MAX_EXTRA_TEXT_FILES, validateExtraTextFileCritical } from "../validation";
 import { EXTRA_WISHES } from "../constants";
+import { VoiceRecorderSection, VoiceRecorderSectionProps } from "../components/VoiceRecorderSection";
+import { PromptTextarea } from "../components/PromptTextarea";
 
 export interface ExtraTextFile {
   id: string;
@@ -11,8 +14,11 @@ export interface ExtraTextFile {
 }
 
 export interface WizardStepExtraProps {
+  getSet: (key: string, subKey?: string) => string;
+  setValue: (key: string, value: unknown, subKey?: string) => void;
   getList: (key: string) => string[];
   toggleList: (key: string, item: string) => void;
+  voice: VoiceRecorderSectionProps["voice"];
   extraTextFiles: ExtraTextFile[];
   setExtraTextFiles: React.Dispatch<React.SetStateAction<ExtraTextFile[]>>;
   extraTextFileError: string | null;
@@ -23,8 +29,11 @@ export interface WizardStepExtraProps {
 }
 
 export function WizardStepExtra({
+  getSet,
+  setValue,
   getList,
   toggleList,
+  voice,
   extraTextFiles,
   setExtraTextFiles,
   extraTextFileError,
@@ -33,22 +42,30 @@ export function WizardStepExtra({
   extraTextFileInputRef,
   onUploadTextFile,
 }: WizardStepExtraProps) {
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    setExtraTextFileError(null);
-    if (!f) return;
-    const err = validateExtraTextFileCritical(f);
-    if (err) {
-      setExtraTextFileError(err);
-      return;
-    }
-    if (extraTextFiles.length >= MAX_EXTRA_TEXT_FILES) {
-      setExtraTextFileError(`Максимум ${MAX_EXTRA_TEXT_FILES} файла(ов)`);
-      return;
-    }
-    await onUploadTextFile(f);
-  };
+  const [speechActive, setSpeechActive] = useState(false);
+  const speechRef = useRef<{ stop(): void } | null>(null);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      e.target.value = "";
+      setExtraTextFileError(null);
+      if (!f) return;
+      const err = validateExtraTextFileCritical(f);
+      if (err) {
+        setExtraTextFileError(err);
+        return;
+      }
+      if (extraTextFiles.length >= MAX_EXTRA_TEXT_FILES) {
+        setExtraTextFileError(`Максимум ${MAX_EXTRA_TEXT_FILES} файла(ов)`);
+        return;
+      }
+      await onUploadTextFile(f);
+    },
+    [extraTextFiles.length, onUploadTextFile, setExtraTextFileError]
+  );
+
+  const extraText = getSet("extra", "text");
 
   return (
     <div className="space-y-4">
@@ -61,28 +78,22 @@ export function WizardStepExtra({
           </label>
         ))}
       </div>
-      <p className="text-xs text-gray-500 mt-2">Текст/сэмплы (если есть):</p>
+
       <div className="space-y-2">
-        <input ref={extraTextFileInputRef as React.RefObject<HTMLInputElement>} type="file" accept={EXTRA_TEXT_ACCEPT} className="hidden" onChange={handleFileChange} />
-        <div className="flex flex-wrap gap-2 items-center">
-          <button
-            type="button"
-            disabled={extraTextUploading}
-            onClick={() => extraTextFileInputRef.current?.click()}
-            className="px-3 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-purple-500/50 text-sm disabled:opacity-50"
-          >
-            {extraTextUploading ? "Загрузка…" : "📎 Прикрепить файл с текстом"}
-          </button>
-          <button type="button" className="px-3 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-500 text-sm">
-            📝 Написать текст
-          </button>
-        </div>
+        <p className="text-gray-300 text-sm">Текстовое описание (промпт)</p>
+        <PromptTextarea
+          value={extraText}
+          onChange={(v) => setValue("extra", v, "text")}
+          maxLength={300}
+          recommendedMin={10}
+          placeholder="Опишите дополнительные пожелания к результату..."
+          disabled={!!voice.voiceFinalBlob || !!voice.voiceDraftBlob || voice.isRecordingVoice || voice.voiceRecordingPaused}
+        />
         {extraTextFileError && (
           <p className="text-xs text-red-400" role="alert">
             {extraTextFileError}
           </p>
         )}
-        <p className="text-xs text-gray-500">Форматы: .txt, .md, .rtf, .pdf (макс. 5–20 MB в зависимости от формата)</p>
         {extraTextFiles.length > 0 && (
           <ul className="space-y-1">
             {extraTextFiles.map(({ id, name, size }) => (
@@ -97,6 +108,7 @@ export function WizardStepExtra({
           </ul>
         )}
       </div>
+      <VoiceRecorderSection voice={voice} />
     </div>
   );
 }
