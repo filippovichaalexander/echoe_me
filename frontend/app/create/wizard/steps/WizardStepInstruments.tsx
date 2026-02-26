@@ -16,7 +16,12 @@ export function WizardStepInstruments({ getList, toggleList }: WizardStepInstrum
         <div className="flex flex-wrap gap-2">
           {INSTRUMENTS_MAIN.map((opt) => (
             <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={getList("instruments_main").includes(opt)} onChange={() => toggleList("instruments_main", opt)} className="rounded border-gray-600 bg-gray-900 text-purple-500" />
+              <input
+                type="checkbox"
+                checked={getList("instruments_main").includes(opt)}
+                onChange={() => toggleList("instruments_main", opt)}
+                className="h-5 w-5 rounded border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+              />
               <span className="text-sm text-gray-300">{opt}</span>
             </label>
           ))}
@@ -27,7 +32,12 @@ export function WizardStepInstruments({ getList, toggleList }: WizardStepInstrum
         <div className="flex flex-wrap gap-2">
           {INSTRUMENTS_EXTRA.map((opt) => (
             <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" checked={getList("instruments_extra").includes(opt)} onChange={() => toggleList("instruments_extra", opt)} className="rounded border-gray-600 bg-gray-900 text-purple-500" />
+              <input
+                type="checkbox"
+                checked={getList("instruments_extra").includes(opt)}
+                onChange={() => toggleList("instruments_extra", opt)}
+                className="h-5 w-5 rounded border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+              />
               <span className="text-sm text-gray-300">{opt}</span>
             </label>
           ))}

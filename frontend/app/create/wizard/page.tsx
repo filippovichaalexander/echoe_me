@@ -64,6 +64,14 @@ export default function WizardPage() {
   const wizardSteps = selectedType === "Полная композиция" ? STEPS : STEPS.filter((s) => s.id !== "structure");
   const current = wizardSteps[step];
   const isLast = step === wizardSteps.length - 1;
+  const hasDescription = ((data.description as string) ?? "").trim().length > 0;
+  const hasAudio = !!voice.getBlobToUpload();
+  const isStep2GenerateDisabled =
+    current?.id === "description" &&
+    ((!hasDescription && !hasAudio) ||
+      voice.voiceUploading ||
+      voice.isRecordingVoice ||
+      (hasAudio && !!voice.voiceDurationError));
 
   const handleCreateProject = useCallback(async () => {
     setCreateError(null);
@@ -127,6 +135,15 @@ export default function WizardPage() {
       /* TODO: submit */
     }
   }, [current, voice.getBlobToUpload, currentProject, selectedType, step, wizardSteps.length, voice]);
+
+  const handleSkipStep = useCallback(() => {
+    if (!current) return;
+    if (current.id === "description") {
+      // TODO: trigger immediate generation without going through the remaining steps
+      return;
+    }
+    setStep((s) => (s + 1 < wizardSteps.length ? s + 1 : s));
+  }, [current, wizardSteps.length]);
 
   const uploadRefFile = useCallback(async (file: File) => {
     setRefsUploading(true);
@@ -301,25 +318,52 @@ export default function WizardPage() {
                       <div className="flex-1 overflow-auto">
                         {renderStepContent()}
                       </div>
-                      <div className="mt-6 flex items-center justify-between gap-4 border-t border-gray-700/50 pt-4">
-                        <button type="button" onClick={handleBackStep} className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-white transition">
-                          Назад
-                        </button>
-                        <div className="flex items-center gap-2 ml-auto">
-                          {!isLast && (
-                            <button type="button" onClick={() => setStep(step + 1)} className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-white transition">
-                              Пропустить
-                            </button>
-                          )}
+                      <div className="mt-6 flex items-center justify-between gap-4 border-t border-gray-700/50 pt-6">
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleStepNext()}
-                            className="bg-purple-600 hover:bg-purple-500 rounded-xl px-4 py-2 font-medium transition disabled:opacity-50"
-                            disabled={current?.id === "description" && (voice.voiceUploading || voice.isRecordingVoice || (!!voice.getBlobToUpload() && !!voice.voiceDurationError))}
+                            onClick={handleBackStep}
+                            className="rounded-xl px-4 py-2 font-medium text-gray-400 hover:text-white transition"
                           >
-                            {isLast ? "Создать" : "Далее"}
+                            Назад
                           </button>
+                          {/* Secondary "Далее" for description step */}
+                          {current?.id === "description" && (
+                            <button
+                              type="button"
+                              onClick={() => handleStepNext()}
+                              className="rounded-xl px-4 py-2 font-medium text-gray-300 hover:text-white hover:bg-gray-700/70 border border-gray-700/70 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isStep2GenerateDisabled}
+                            >
+                              Далее
+                            </button>
+                          )}
+                          {/* Secondary "Далее" for steps 3-7 (non-last) */}
+                          {!isLast && current?.id !== "description" && (
+                            <button
+                              type="button"
+                              onClick={() => handleStepNext()}
+                              className="rounded-xl px-4 py-2 font-medium text-gray-300 hover:text-white hover:bg-gray-700/70 border border-gray-700/70 transition"
+                            >
+                              Далее
+                            </button>
+                          )}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (current?.id === "description" || !isLast) {
+                              // TODO: trigger immediate generation without going through the remaining steps
+                              return;
+                            }
+                            // last step: go through normal submit flow
+                            handleStepNext();
+                          }}
+                          className="bg-purple-600 hover:bg-purple-500 rounded-xl px-4 py-2 font-medium transition disabled:opacity-50"
+                          disabled={isStep2GenerateDisabled}
+                        >
+                          {current?.id === "description" || !isLast ? "Сгенерировать сейчас" : "Сгенерировать"}
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -44,7 +44,7 @@ export function PromptTextarea({
         <textarea
           placeholder={placeholder}
           rows={4}
-          className="w-full bg-gray-900 rounded-lg px-4 py-3 pr-16 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700 disabled:opacity-60 disabled:pointer-events-none resize-y min-h-[6rem]"
+          className="w-full bg-gray-900 rounded-lg px-4 py-3 pr-16 text-white placeholder-gray-500 border border-gray-700 focus:outline-none focus:border-purple-500 focus:ring-0 disabled:opacity-60 disabled:pointer-events-none resize-none overflow-y-auto min-h-[6rem]"
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}

@@ -67,7 +67,7 @@ export function WizardStepRefs(p: WizardStepRefsProps) {
             inputMode="url"
             autoComplete="url"
             placeholder="https://..."
-            className="flex-1 bg-gray-900 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-700 text-sm"
+            className="flex-1 bg-gray-900 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none border border-gray-700 focus:border-purple-500 focus:ring-0 text-sm"
             value={p.refsLinkInput}
             onChange={(e) => { p.setRefsLinkInput(e.target.value); p.setRefsLinkError(null); }}
             onBlur={() => p.refsLinkInput.trim() && p.setRefsLinkError(validateRefUrl(p.refsLinkInput))}
@@ -86,10 +86,15 @@ export function WizardStepRefs(p: WizardStepRefsProps) {
           </ul>
         )}
       </div>
-      <div>
+      <div className="mt-2">
         <p className="text-xs text-gray-500 mb-1">Загрузить аудиофайл (референс)</p>
         <input ref={p.refsFileInputRef as React.RefObject<HTMLInputElement>} type="file" accept={REFS_ACCEPT} className="hidden" onChange={onFile} />
-        <button type="button" disabled={p.refsUploading} onClick={() => p.refsFileInputRef.current?.click()} className="px-3 py-2 rounded-lg border border-gray-600 text-gray-300 hover:border-purple-500/50 text-sm disabled:opacity-50">
+        <button
+          type="button"
+          disabled={p.refsUploading}
+          onClick={() => p.refsFileInputRef.current?.click()}
+          className="px-3 py-2 rounded-lg border border-gray-600 text-gray-300 hover:border-purple-500/50 text-sm disabled:opacity-50"
+        >
           {p.refsUploading ? "Загрузка…" : "[+] Загрузить аудиофайл"}
         </button>
         {p.refsFileError && <p className="mt-1 text-xs text-red-400" role="alert">{p.refsFileError}</p>}
@@ -106,11 +111,16 @@ export function WizardStepRefs(p: WizardStepRefsProps) {
           </ul>
         )}
       </div>
-      <p className="text-xs text-gray-500 mt-2">ИЛИ выбери из популярных:</p>
-      <div className="flex flex-wrap gap-2">
+      <p className="text-xs text-gray-500 mt-4">ИЛИ выбери из популярных:</p>
+      <div className="flex flex-wrap gap-4">
         {REFS_POPULAR.map((opt) => (
           <label key={opt} className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={p.getList("refs_popular").includes(opt)} onChange={() => p.toggleList("refs_popular", opt)} className="rounded border-gray-600 bg-gray-900 text-purple-500" />
+            <input
+              type="checkbox"
+              checked={p.getList("refs_popular").includes(opt)}
+              onChange={() => p.toggleList("refs_popular", opt)}
+              className="h-5 w-5 rounded border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+            />
             <span className="text-sm text-gray-300">{opt}</span>
           </label>
         ))}

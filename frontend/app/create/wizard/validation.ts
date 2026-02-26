@@ -8,7 +8,7 @@ export const MAX_REFS_LINKS = 10;
 /** Безопасная валидация веб-ссылки */
 export function validateRefUrl(input: string): string | null {
   const raw = (input || "").trim();
-  if (!raw) return null;
+  if (!raw) return "Введите ссылку";
   if (raw.length > MAX_URL_LENGTH) return "Ссылка слишком длинная";
   try {
     const url = new URL(raw);

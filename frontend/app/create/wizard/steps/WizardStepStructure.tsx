@@ -25,7 +25,12 @@ export function WizardStepStructure({ getSet, getList, setValue, toggleList }: W
       <div className="flex flex-wrap gap-2">
         {STRUCTURE_TEMPLATES.map((opt) => (
           <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={getList("structure_type").includes(opt)} onChange={() => toggleList("structure_type", opt)} className="rounded border-gray-600 bg-gray-900 text-purple-500" />
+            <input
+              type="checkbox"
+              checked={getList("structure_type").includes(opt)}
+              onChange={() => toggleList("structure_type", opt)}
+              className="h-5 w-5 rounded border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+            />
             <span className="text-sm text-gray-300">{opt.split(":")[0]}</span>
           </label>
         ))}
