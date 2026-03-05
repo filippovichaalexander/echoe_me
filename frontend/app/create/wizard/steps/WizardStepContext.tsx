@@ -31,7 +31,13 @@ export function WizardStepContext({ getList, getSet, toggleList, setValue }: Wiz
         <div className="flex flex-wrap gap-2">
           {CONTEXT_AUDIENCE.map((opt) => (
             <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="audience" checked={getSet("context", "audience") === opt} onChange={() => setValue("context", opt, "audience")} className="text-purple-500" />
+              <input
+                type="radio"
+                name="audience"
+                checked={getSet("context", "audience") === opt}
+                onChange={() => setValue("context", opt, "audience")}
+                className="h-5 w-5 rounded-full border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+              />
               <span className="text-sm text-gray-300">{opt}</span>
             </label>
           ))}

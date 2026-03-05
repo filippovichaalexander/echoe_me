@@ -1,6 +1,8 @@
 "use client";
 
-import { DURATION_OPTIONS, BPM_OPTIONS, COMPLEXITY_OPTIONS, TONALITY_OPTIONS } from "../constants";
+import { DURATION_OPTIONS, BPM_OPTIONS, COMPLEXITY_OPTIONS } from "../constants";
+import { KeySelector } from "../components/KeySelector";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 
 export interface WizardStepTechProps {
   getSet: (key: string, subKey?: string) => string;
@@ -8,6 +10,8 @@ export interface WizardStepTechProps {
 }
 
 export function WizardStepTech({ getSet, setValue }: WizardStepTechProps) {
+  const { tier } = useSubscription();
+
   return (
     <div className="space-y-5">
       <p className="text-gray-300 text-sm">⚙️ Технические детали</p>
@@ -16,7 +20,13 @@ export function WizardStepTech({ getSet, setValue }: WizardStepTechProps) {
         <div className="flex flex-wrap gap-2">
           {DURATION_OPTIONS.map((opt) => (
             <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="duration" checked={getSet("tech", "duration") === opt} onChange={() => setValue("tech", opt, "duration")} className="text-purple-500" />
+              <input
+                type="radio"
+                name="duration"
+                checked={getSet("tech", "duration") === opt}
+                onChange={() => setValue("tech", opt, "duration")}
+                className="h-5 w-5 rounded-full border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+              />
               <span className="text-sm text-gray-300">{opt}</span>
             </label>
           ))}
@@ -27,7 +37,13 @@ export function WizardStepTech({ getSet, setValue }: WizardStepTechProps) {
         <div className="flex flex-wrap gap-2">
           {BPM_OPTIONS.map((opt) => (
             <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="bpm" checked={getSet("tech", "bpm") === opt} onChange={() => setValue("tech", opt, "bpm")} className="text-purple-500" />
+              <input
+                type="radio"
+                name="bpm"
+                checked={getSet("tech", "bpm") === opt}
+                onChange={() => setValue("tech", opt, "bpm")}
+                className="h-5 w-5 rounded-full border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+              />
               <span className="text-sm text-gray-300">{opt}</span>
             </label>
           ))}
@@ -35,18 +51,24 @@ export function WizardStepTech({ getSet, setValue }: WizardStepTechProps) {
       </div>
       <div>
         <p className="text-xs text-gray-500 mb-2">Тональность (опционально):</p>
-        <select value={getSet("tech", "key")} onChange={(e) => setValue("tech", e.target.value, "key")} className="bg-gray-900 rounded-lg px-3 py-2 text-white border border-gray-700 text-sm">
-          {TONALITY_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
+        <KeySelector
+          tier={tier}
+          value={getSet("tech", "key")}
+          onChange={(val) => setValue("tech", val, "key")}
+        />
       </div>
       <div>
         <p className="text-xs text-gray-500 mb-2">Сложность:</p>
         <div className="flex flex-wrap gap-2">
           {COMPLEXITY_OPTIONS.map((opt) => (
             <label key={opt} className="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="complexity" checked={getSet("tech", "complexity") === opt} onChange={() => setValue("tech", opt, "complexity")} className="text-purple-500" />
+              <input
+                type="radio"
+                name="complexity"
+                checked={getSet("tech", "complexity") === opt}
+                onChange={() => setValue("tech", opt, "complexity")}
+                className="h-5 w-5 rounded-full border-2 border-gray-600 bg-gray-900 text-purple-500 cursor-pointer p-0.5"
+              />
               <span className="text-sm text-gray-300">{opt}</span>
             </label>
           ))}
@@ -55,3 +77,4 @@ export function WizardStepTech({ getSet, setValue }: WizardStepTechProps) {
     </div>
   );
 }
+
